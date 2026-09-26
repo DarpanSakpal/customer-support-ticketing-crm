@@ -1,34 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-
 import StatusBadge from "../components/StatusBadge";
-import { getTicketStats, getTickets } from "../services/api";
+import { getTickets } from "../services/api";
 
 function Dashboard() {
   const [tickets, setTickets] = useState([]);
 
-  const [stats, setStats] = useState({
-    total: 0,
-    open: 0,
-    in_progress: 0,
-    closed: 0,
-  });
-
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
+  const [status, setStatus] = useState("");
+
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize] = useState(10);
 
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
   const [loading, setLoading] = useState(true);
-  const [statsLoading, setStatsLoading] = useState(true);
-
+  const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
-  const [statsError, setStatsError] = useState("");
 
   // =====================================================
   // DEBOUNCE SEARCH
@@ -43,14 +34,27 @@ function Dashboard() {
   }, [search]);
 
   // =====================================================
-  // LOAD TICKETS
+  // RESET PAGE WHEN SEARCH/FILTER CHANGES
+  // =====================================================
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, status]);
+
+  // =====================================================
+  // FETCH TICKETS
   // =====================================================
 
   useEffect(() => {
     async function loadTickets() {
       try {
-        setLoading(true);
         setError("");
+
+        if (tickets.length === 0) {
+          setLoading(true);
+        } else {
+          setIsSearching(true);
+        }
 
         const data = await getTickets({
           search: debouncedSearch,
@@ -59,356 +63,408 @@ function Dashboard() {
           pageSize,
         });
 
-        setTickets(data.items || []);
-        setTotal(data.total || 0);
-        setTotalPages(data.total_pages || 0);
+        setTickets(data.items);
+        setTotal(data.total);
+        setTotalPages(data.total_pages);
       } catch (err) {
-        setError(err.message || "Failed to load tickets.");
+        console.error(err);
+
+        setError(
+          err.message || "Failed to load tickets."
+        );
       } finally {
         setLoading(false);
+        setIsSearching(false);
       }
     }
 
     loadTickets();
-  }, [debouncedSearch, status, page]);
+  }, [debouncedSearch, status, page, pageSize]);
 
   // =====================================================
-  // LOAD STATISTICS
+  // STATISTICS
   // =====================================================
 
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        setStatsLoading(true);
-        setStatsError("");
+  const statistics = useMemo(() => {
+    return {
+      total: total,
 
-        const data = await getTicketStats();
+      open: tickets.filter(
+        (ticket) => ticket.status === "Open"
+      ).length,
 
-        setStats({
-          total: data.total || 0,
-          open: data.open || 0,
-          in_progress: data.in_progress || 0,
-          closed: data.closed || 0,
-        });
-      } catch (err) {
-        setStatsError(
-          err.message || "Failed to load statistics."
-        );
-      } finally {
-        setStatsLoading(false);
-      }
-    }
+      inProgress: tickets.filter(
+        (ticket) => ticket.status === "In Progress"
+      ).length,
 
-    loadStats();
-  }, []);
+      closed: tickets.filter(
+        (ticket) => ticket.status === "Closed"
+      ).length,
+    };
+  }, [tickets, total]);
 
   // =====================================================
-  // HANDLERS
+  // CLEAR FILTERS
   // =====================================================
 
-  function handleSearchChange(event) {
-    setSearch(event.target.value);
-    setPage(1);
-  }
-
-  function handleStatusChange(event) {
-    setStatus(event.target.value);
-    setPage(1);
-  }
-
-  function handleClearFilters() {
+  function clearFilters() {
     setSearch("");
     setStatus("");
     setPage(1);
   }
 
-  function formatDate(dateString) {
-    if (!dateString) {
-      return "-";
+  // =====================================================
+  // PAGINATION
+  // =====================================================
+
+  function goToPage(newPage) {
+    if (
+      newPage < 1 ||
+      newPage > totalPages ||
+      newPage === page
+    ) {
+      return;
     }
 
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    setPage(newPage);
   }
 
-  const hasFilters =
-    search.trim() !== "" || status !== "";
+  function getPageNumbers() {
+    const pages = [];
+
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+
+      return pages;
+    }
+
+    pages.push(1);
+
+    if (page > 3) {
+      pages.push("...");
+    }
+
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (page < totalPages - 2) {
+      pages.push("...");
+    }
+
+    pages.push(totalPages);
+
+    return pages;
+  }
+
+  // =====================================================
+  // DISPLAY RANGE
+  // =====================================================
+
+  const startItem =
+    total === 0
+      ? 0
+      : (page - 1) * pageSize + 1;
+
+  const endItem =
+    total === 0
+      ? 0
+      : Math.min(page * pageSize, total);
+
+  // =====================================================
+  // LOADING STATE
+  // =====================================================
+
+  if (loading) {
+    return (
+      <main className="min-h-[calc(100vh-5rem)] px-4 pb-8 pt-12 sm:px-6 sm:pt-14 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="animate-pulse space-y-6">
+
+            <div className="h-8 w-64 rounded-lg bg-[var(--surface-soft)]" />
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[1, 2, 3, 4].map((item) => (
+                <div
+                  key={item}
+                  className="h-32 rounded-2xl bg-[var(--surface-soft)]"
+                />
+              ))}
+            </div>
+
+            <div className="h-96 rounded-2xl bg-[var(--surface-soft)]" />
+
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // =====================================================
+  // MAIN UI
+  // =====================================================
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6">
+    <main className="min-h-[calc(100vh-5rem)] px-4 pb-8 pt-12 sm:px-6 sm:pt-14 lg:px-8">
 
-      {/* =================================================
-          PAGE HEADER
-      ================================================= */}
+      <div className="mx-auto max-w-7xl space-y-8">
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-            Dashboard
-          </h1>
+        <section className="animate-slide-up">
 
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            Manage customer support tickets and requests.
-          </p>
-        </div>
-
-        <Link
-          to="/create-ticket"
-          className="crm-button w-full rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white hover:bg-[var(--primary-hover)] sm:w-auto"
-        >
-          <span className="text-lg leading-none">
-            +
-          </span>
-
-          Create Ticket
-        </Link>
-
-      </div>
-
-
-      {/* =================================================
-          STATISTICS
-      ================================================= */}
-
-      {statsError && (
-        <div className="rounded-lg border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-400">
-          {statsError}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-        {/* Total */}
-
-        <div className="crm-card p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 
             <div>
-              <p className="text-sm font-medium text-[var(--text-secondary)]">
-                Total Tickets
+
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                Support workspace
               </p>
 
-              <p className="crm-stat-value mt-2 text-3xl font-bold text-[var(--text-primary)]">
-                {statsLoading ? "—" : stats.total}
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+                Ticket Dashboard
+              </h1>
+
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Manage and track customer support requests.
               </p>
+
             </div>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
-              <svg
-                className="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <rect
-                  x="5"
-                  y="4"
-                  width="14"
-                  height="16"
-                  rx="2"
-                />
-                <path d="M9 8h6M9 12h6M9 16h4" />
-              </svg>
-            </div>
+            <Link
+              to="/create-ticket"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md"
+            >
+              <span className="text-lg leading-none">
+                +
+              </span>
+
+              Create Ticket
+            </Link>
 
           </div>
-        </div>
 
+        </section>
 
-        {/* Open */}
+        {/* =================================================
+            STATISTICS
+        ================================================= */}
 
-        <div className="crm-card p-5">
-          <div className="flex items-center justify-between">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
-            <div>
-              <p className="text-sm font-medium text-[var(--text-secondary)]">
-                Open
-              </p>
+          {/* TOTAL */}
 
-              <p className="crm-stat-value mt-2 text-3xl font-bold text-[var(--text-primary)]">
-                {statsLoading ? "—" : stats.open}
-              </p>
-            </div>
+          <div className="crm-card animate-slide-up p-5">
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
-              <svg
-                className="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle cx="12" cy="12" r="8" />
-                <path d="M12 8v4l3 2" />
-              </svg>
-            </div>
+            <div className="flex items-start justify-between">
 
-          </div>
-        </div>
+              <div>
 
+                <p className="text-sm font-medium text-[var(--text-secondary)]">
+                  Total Tickets
+                </p>
 
-        {/* In Progress */}
-
-        <div className="crm-card p-5">
-          <div className="flex items-center justify-between">
-
-            <div>
-              <p className="text-sm font-medium text-[var(--text-secondary)]">
-                In Progress
-              </p>
-
-              <p className="crm-stat-value mt-2 text-3xl font-bold text-[var(--text-primary)]">
-                {statsLoading ? "—" : stats.in_progress}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
-              <svg
-                className="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
-                <path d="m5.6 5.6 2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
-              </svg>
-            </div>
-
-          </div>
-        </div>
-
-
-        {/* Closed */}
-
-        <div className="crm-card p-5">
-          <div className="flex items-center justify-between">
-
-            <div>
-              <p className="text-sm font-medium text-[var(--text-secondary)]">
-                Closed
-              </p>
-
-              <p className="crm-stat-value mt-2 text-3xl font-bold text-[var(--text-primary)]">
-                {statsLoading ? "—" : stats.closed}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-500/10 text-green-400">
-              <svg
-                className="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  d="m5 12 4 4L19 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-
-          </div>
-        </div>
-
-      </div>
-
-
-      {/* =================================================
-          ALL TICKETS
-      ================================================= */}
-
-      <section className="crm-card overflow-hidden">
-
-        {/* HEADER */}
-
-        <div className="border-b border-[var(--border)] px-5 py-5 sm:px-6">
-
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                All Tickets
-              </h2>
-
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                {total}{" "}
-                {total === 1 ? "ticket" : "tickets"} in your workspace
-              </p>
-            </div>
-
-
-            {/* =================================================
-                SEARCH + STATUS FILTER
-            ================================================= */}
-
-            <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
-
-              {/* SEARCH */}
-
-              <div className="relative w-full sm:w-[300px]">
-
-                <svg
-                  className="pointer-events-none absolute left-4 top-1/2 z-20 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="11"
-                    cy="11"
-                    r="7"
-                  />
-
-                  <path d="m20 20-4-4" />
-                </svg>
-
-
-                <input
-                  type="text"
-                  value={search}
-                  onChange={handleSearchChange}
-                  placeholder="Search tickets..."
-                  aria-label="Search tickets"
-
-                  /*
-                   * IMPORTANT:
-                   * Inline padding prevents the existing
-                   * .crm-input CSS from overriding the
-                   * search icon spacing.
-                   */
-                  style={{
-                    paddingLeft: "44px",
-                    paddingRight: "16px",
-                  }}
-
-                  className="crm-input h-11 w-full rounded-lg text-sm"
-                />
+                <p className="mt-3 text-3xl font-bold text-[var(--text-primary)]">
+                  {statistics.total}
+                </p>
 
               </div>
 
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
 
-              {/* STATUS FILTER */}
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                >
+                  <rect
+                    x="4"
+                    y="4"
+                    width="16"
+                    height="16"
+                    rx="2"
+                  />
 
-              <div className="w-full sm:w-[210px]">
+                  <path d="M8 9h8M8 13h8M8 17h5" />
+                </svg>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* OPEN */}
+
+          <div className="crm-card animate-slide-up p-5">
+
+            <div className="flex items-start justify-between">
+
+              <div>
+
+                <p className="text-sm font-medium text-[var(--text-secondary)]">
+                  Open
+                </p>
+
+                <p className="mt-3 text-3xl font-bold text-[var(--text-primary)]">
+                  {statistics.open}
+                </p>
+
+              </div>
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+                <span className="h-3 w-3 rounded-full bg-blue-500" />
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* IN PROGRESS */}
+
+          <div className="crm-card animate-slide-up p-5">
+
+            <div className="flex items-start justify-between">
+
+              <div>
+
+                <p className="text-sm font-medium text-[var(--text-secondary)]">
+                  In Progress
+                </p>
+
+                <p className="mt-3 text-3xl font-bold text-[var(--text-primary)]">
+                  {statistics.inProgress}
+                </p>
+
+              </div>
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+                <span className="h-3 w-3 rounded-full bg-amber-500" />
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* CLOSED */}
+
+          <div className="crm-card animate-slide-up p-5">
+
+            <div className="flex items-start justify-between">
+
+              <div>
+
+                <p className="text-sm font-medium text-[var(--text-secondary)]">
+                  Closed
+                </p>
+
+                <p className="mt-3 text-3xl font-bold text-[var(--text-primary)]">
+                  {statistics.closed}
+                </p>
+
+              </div>
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-600 dark:bg-green-950/50 dark:text-green-400">
+                <span className="h-3 w-3 rounded-full bg-green-500" />
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =================================================
+            TICKET SECTION
+        ================================================= */}
+
+        <section className="crm-card animate-slide-up overflow-hidden">
+
+          {/* HEADER */}
+
+          <div className="border-b border-[var(--border)] p-5 sm:p-6">
+
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+              <div>
+
+                <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                  All Tickets
+                </h2>
+
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                  Search and manage customer support tickets.
+                </p>
+
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+
+                {/* SEARCH */}
+
+                <div className="relative w-full sm:w-80">
+
+                  <svg
+                    className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-muted)]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-4-4" />
+                  </svg>
+
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(event) =>
+                      setSearch(event.target.value)
+                    }
+                    placeholder="Search tickets..."
+                    className="crm-input py-3 pl-10 pr-10 text-sm"
+                  />
+
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
+                      aria-label="Clear search"
+                    >
+                      ×
+                    </button>
+                  )}
+
+                  {isSearching && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+
+                    </div>
+                  )}
+
+                </div>
+
+                {/* STATUS */}
 
                 <select
                   value={status}
-                  onChange={handleStatusChange}
-                  aria-label="Filter tickets by status"
-                  className="crm-select h-11 w-full rounded-lg text-sm"
+                  onChange={(event) =>
+                    setStatus(event.target.value)
+                  }
+                  className="crm-input min-w-40 px-4 py-3 text-sm"
                 >
+
                   <option value="">
                     All Statuses
                   </option>
@@ -424,314 +480,364 @@ function Dashboard() {
                   <option value="Closed">
                     Closed
                   </option>
+
                 </select>
 
               </div>
 
             </div>
 
-          </div>
+            {/* ACTIVE FILTERS */}
 
+            {(search || status) && (
 
-          {/* ACTIVE FILTERS */}
-
-          {hasFilters && (
-            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-4">
-
-              <p className="text-xs text-[var(--text-secondary)]">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
 
                 {search && (
-                  <>
-                    Search:{" "}
-                    <span className="font-semibold text-[var(--text-primary)]">
-                      "{search}"
-                    </span>
-                  </>
+                  <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-400">
+                    Search: {search}
+                  </span>
                 )}
-
-                {search && status && " • "}
 
                 {status && (
-                  <>
-                    Status:{" "}
-                    <span className="font-semibold text-[var(--text-primary)]">
-                      {status}
-                    </span>
-                  </>
+                  <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-400">
+                    Status: {status}
+                  </span>
                 )}
+
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="text-xs font-semibold text-[var(--text-secondary)] hover:text-blue-600"
+                >
+                  Clear filters
+                </button>
+
+              </div>
+
+            )}
+
+          </div>
+
+          {/* ERROR */}
+
+          {error && (
+
+            <div className="m-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+              {error}
+            </div>
+
+          )}
+
+          {/* =================================================
+              TABLE
+          ================================================= */}
+
+          {tickets.length > 0 ? (
+
+            <>
+
+              <div className="overflow-x-auto">
+
+                <table className="w-full min-w-[800px]">
+
+                  <thead>
+
+                    <tr className="border-b border-[var(--border)] bg-[var(--surface-soft)]">
+
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Ticket
+                      </th>
+
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Customer
+                      </th>
+
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Subject
+                      </th>
+
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Status
+                      </th>
+
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Created
+                      </th>
+
+                      <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Action
+                      </th>
+
+                    </tr>
+
+                  </thead>
+
+                  <tbody className="divide-y divide-[var(--border)]">
+
+                    {tickets.map((ticket) => (
+
+                      <tr
+                        key={ticket.ticket_id}
+                        className="transition hover:bg-[var(--surface-soft)]"
+                      >
+
+                        <td className="px-6 py-4">
+
+                          <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                            {ticket.ticket_id}
+                          </span>
+
+                        </td>
+
+                        <td className="px-6 py-4">
+
+                          <div>
+
+                            <p className="text-sm font-semibold text-[var(--text-primary)]">
+                              {ticket.customer_name}
+                            </p>
+
+                            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                              {ticket.customer_email}
+                            </p>
+
+                          </div>
+
+                        </td>
+
+                        <td className="max-w-xs px-6 py-4">
+
+                          <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+                            {ticket.subject}
+                          </p>
+
+                        </td>
+
+                        <td className="px-6 py-4">
+
+                          <StatusBadge
+                            status={ticket.status}
+                          />
+
+                        </td>
+
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-[var(--text-secondary)]">
+
+                          {new Date(
+                            ticket.created_at
+                          ).toLocaleDateString()}
+
+                        </td>
+
+                        <td className="px-6 py-4 text-right">
+
+                          <Link
+                            to={`/tickets/${ticket.ticket_id}`}
+                            className="inline-flex items-center rounded-lg px-3 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                          >
+                            View
+                          </Link>
+
+                        </td>
+
+                      </tr>
+
+                    ))}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+              {/* =================================================
+                  PAGINATION
+              ================================================= */}
+
+              <div className="flex flex-col gap-4 border-t border-[var(--border)] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+
+                {/* RANGE */}
+
+                <p className="text-sm text-[var(--text-secondary)]">
+
+                  Showing{" "}
+
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {startItem}
+                  </span>{" "}
+
+                  to{" "}
+
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {endItem}
+                  </span>{" "}
+
+                  of{" "}
+
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {total}
+                  </span>{" "}
+
+                  tickets
+
+                </p>
+
+                {/* BUTTONS */}
+
+                {totalPages > 1 && (
+
+                  <div className="flex items-center gap-1">
+
+                    {/* PREVIOUS */}
+
+                    <button
+                      type="button"
+                      onClick={() => goToPage(page - 1)}
+                      disabled={page === 1}
+                      className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+
+                    {/* PAGE NUMBERS */}
+
+                    <div className="hidden items-center gap-1 sm:flex">
+
+                      {getPageNumbers().map(
+                        (pageNumber, index) =>
+                          pageNumber === "..." ? (
+
+                            <span
+                              key={`ellipsis-${index}`}
+                              className="px-2 text-sm text-[var(--text-muted)]"
+                            >
+                              ...
+                            </span>
+
+                          ) : (
+
+                            <button
+                              key={pageNumber}
+                              type="button"
+                              onClick={() =>
+                                goToPage(pageNumber)
+                              }
+                              className={`h-9 min-w-9 rounded-lg px-2 text-sm font-semibold transition ${
+                                pageNumber === page
+                                  ? "bg-blue-600 text-white shadow-sm"
+                                  : "text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"
+                              }`}
+                            >
+                              {pageNumber}
+                            </button>
+
+                          )
+                      )}
+
+                    </div>
+
+                    {/* MOBILE PAGE */}
+
+                    <span className="px-3 text-sm font-medium text-[var(--text-secondary)] sm:hidden">
+                      {page} / {totalPages}
+                    </span>
+
+                    {/* NEXT */}
+
+                    <button
+                      type="button"
+                      onClick={() => goToPage(page + 1)}
+                      disabled={page === totalPages}
+                      className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+
+                  </div>
+
+                )}
+
+              </div>
+
+            </>
+
+          ) : (
+
+            /* =================================================
+               EMPTY STATE
+            ================================================= */
+
+            <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
+
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--surface-soft)] text-[var(--text-muted)]">
+
+                <svg
+                  className="h-7 w-7"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                >
+
+                  <rect
+                    x="4"
+                    y="4"
+                    width="16"
+                    height="16"
+                    rx="2"
+                  />
+
+                  <path d="M8 9h8M8 13h6" />
+
+                </svg>
+
+              </div>
+
+              <h3 className="mt-4 text-base font-semibold text-[var(--text-primary)]">
+                No tickets found
+              </h3>
+
+              <p className="mt-1 max-w-sm text-sm text-[var(--text-secondary)]">
+
+                {search || status
+                  ? "Try changing your search or filter."
+                  : "Create your first support ticket to get started."}
 
               </p>
 
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="text-xs font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]"
-              >
-                Clear filters
-              </button>
+              {(search || status) && (
+
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-4 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Clear filters
+                </button>
+
+              )}
+
+              {!search && !status && (
+
+                <Link
+                  to="/create-ticket"
+                  className="mt-4 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Create Ticket
+                </Link>
+
+              )}
 
             </div>
+
           )}
 
-        </div>
+        </section>
 
+      </div>
 
-        {/* ERROR */}
-
-        {error && (
-          <div className="m-5 rounded-lg border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-400">
-            {error}
-          </div>
-        )}
-
-
-        {/* LOADING */}
-
-        {loading ? (
-
-          <div className="flex min-h-[280px] items-center justify-center">
-            <div className="text-sm text-[var(--text-secondary)]">
-              Loading tickets...
-            </div>
-          </div>
-
-        ) : tickets.length === 0 ? (
-
-          /* EMPTY STATE */
-
-          <div className="flex min-h-[300px] flex-col items-center justify-center px-5 text-center">
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[var(--text-muted)]">
-
-              <svg
-                className="h-6 w-6"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              >
-                <rect
-                  x="4"
-                  y="5"
-                  width="16"
-                  height="14"
-                  rx="2"
-                />
-
-                <path d="M8 9h8M8 13h5" />
-              </svg>
-
-            </div>
-
-            <h3 className="mt-4 text-base font-semibold text-[var(--text-primary)]">
-              No tickets found
-            </h3>
-
-            <p className="mt-1 max-w-sm text-sm text-[var(--text-secondary)]">
-              Try changing your search or status filter.
-            </p>
-
-            {hasFilters && (
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="mt-4 text-sm font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]"
-              >
-                Clear filters
-              </button>
-            )}
-
-          </div>
-
-        ) : (
-
-          /* =================================================
-             TABLE
-          ================================================= */
-
-          <>
-            <div className="crm-table-container">
-
-              <table className="crm-table w-full text-left">
-
-                <thead>
-                  <tr className="border-b border-[var(--border)]">
-
-                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Ticket
-                    </th>
-
-                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Customer
-                    </th>
-
-                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Subject
-                    </th>
-
-                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Status
-                    </th>
-
-                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Created
-                    </th>
-
-                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      Action
-                    </th>
-
-                  </tr>
-                </thead>
-
-
-                <tbody>
-
-                  {tickets.map((ticket) => (
-                    <tr
-                      key={ticket.ticket_id}
-                      className="crm-table-row border-b border-[var(--border-light)] last:border-b-0"
-                    >
-
-                      {/* Ticket */}
-
-                      <td className="px-6 py-4">
-
-                        <Link
-                          to={`/tickets/${ticket.ticket_id}`}
-                          className="text-sm font-bold text-[var(--primary)] hover:underline"
-                        >
-                          {ticket.ticket_id}
-                        </Link>
-
-                      </td>
-
-
-                      {/* Customer */}
-
-                      <td className="max-w-[230px] px-6 py-4">
-
-                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-                          {ticket.customer_name}
-                        </p>
-
-                        <p className="crm-break-anywhere mt-1 text-xs text-[var(--text-secondary)]">
-                          {ticket.customer_email}
-                        </p>
-
-                      </td>
-
-
-                      {/* Subject */}
-
-                      <td className="max-w-[280px] px-6 py-4">
-
-                        <p className="truncate text-sm font-medium text-[var(--text-primary)]">
-                          {ticket.subject}
-                        </p>
-
-                      </td>
-
-
-                      {/* Status */}
-
-                      <td className="px-6 py-4">
-                        <StatusBadge status={ticket.status} />
-                      </td>
-
-
-                      {/* Created */}
-
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-[var(--text-secondary)]">
-                        {formatDate(ticket.created_at)}
-                      </td>
-
-
-                      {/* Action */}
-
-                      <td className="px-6 py-4 text-right">
-
-                        <Link
-                          to={`/tickets/${ticket.ticket_id}`}
-                          className="inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
-                        >
-                          View
-                        </Link>
-
-                      </td>
-
-                    </tr>
-                  ))}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-
-            {/* =================================================
-                PAGINATION
-            ================================================= */}
-
-            {totalPages > 0 && (
-              <div className="flex flex-col gap-4 border-t border-[var(--border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Page{" "}
-                  <span className="font-semibold text-[var(--text-primary)]">
-                    {page}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-semibold text-[var(--text-primary)]">
-                    {totalPages}
-                  </span>
-                </p>
-
-
-                <div className="flex items-center gap-2">
-
-                  <button
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={() =>
-                      setPage((previous) =>
-                        Math.max(previous - 1, 1)
-                      )
-                    }
-                    className="crm-button rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
-                  >
-                    Previous
-                  </button>
-
-
-                  <button
-                    type="button"
-                    disabled={page >= totalPages}
-                    onClick={() =>
-                      setPage((previous) =>
-                        Math.min(
-                          previous + 1,
-                          totalPages
-                        )
-                      )
-                    }
-                    className="crm-button rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-
-                </div>
-
-              </div>
-            )}
-
-          </>
-        )}
-
-      </section>
-
-    </div>
+    </main>
   );
 }
 
