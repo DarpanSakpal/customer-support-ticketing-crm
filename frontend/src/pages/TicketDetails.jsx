@@ -19,7 +19,6 @@ function TicketDetails() {
 
   const [showCloseModal, setShowCloseModal] = useState(false);
 
-
   // =====================================================
   // LOAD TICKET
   // =====================================================
@@ -35,7 +34,9 @@ function TicketDetails() {
         setTicket(data);
         setStatus(data.status);
       } catch (err) {
-        setError(err.message || "Failed to load ticket");
+        setError(
+          err.message || "Failed to load ticket"
+        );
       } finally {
         setLoading(false);
       }
@@ -43,7 +44,6 @@ function TicketDetails() {
 
     loadTicket();
   }, [ticketId]);
-
 
   // =====================================================
   // SAVE CHANGES
@@ -68,9 +68,6 @@ function TicketDetails() {
         status,
       };
 
-      /*
-       * Backend expects "notes", not "note".
-       */
       if (note.trim()) {
         updateData.notes = note.trim();
       }
@@ -90,22 +87,52 @@ function TicketDetails() {
         setStatus(updatedTicket.status);
       }
     } catch (err) {
-      setError(err.message || "Failed to update ticket");
+      setError(
+        err.message || "Failed to update ticket"
+      );
     } finally {
       setSaving(false);
     }
   }
 
-
   // =====================================================
   // CLOSE TICKET
   // =====================================================
 
-  function handleCloseTicket() {
-    setStatus("Closed");
-    setShowCloseModal(false);
-  }
+  async function handleCloseTicket() {
+    if (!ticket || ticket.status === "Closed") {
+      setShowCloseModal(false);
+      return;
+    }
 
+    try {
+      setSaving(true);
+      setError("");
+      setSuccess("");
+
+      // Immediately save Closed status to backend
+      const response = await updateTicket(ticketId, {
+        status: "Closed",
+      });
+
+      if (response.success) {
+        // Reload ticket from database
+        const updatedTicket = await getTicket(ticketId);
+
+        setTicket(updatedTicket);
+        setStatus(updatedTicket.status);
+
+        setSuccess("Ticket closed successfully.");
+        setShowCloseModal(false);
+      }
+    } catch (err) {
+      setError(
+        err.message || "Failed to close ticket"
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // =====================================================
   // LOADING
@@ -120,7 +147,6 @@ function TicketDetails() {
       </div>
     );
   }
-
 
   // =====================================================
   // ERROR
@@ -151,11 +177,9 @@ function TicketDetails() {
     );
   }
 
-
   if (!ticket) {
     return null;
   }
-
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -196,14 +220,15 @@ function TicketDetails() {
 
         </div>
 
-
-        {/* Close button */}
+        {/* CLOSE BUTTON */}
 
         <button
           type="button"
           onClick={() => setShowCloseModal(true)}
-          disabled={ticket.status === "Closed"}
-          className="crm-button w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] sm:w-auto"
+          disabled={
+            ticket.status === "Closed" || saving
+          }
+          className="crm-button w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           {ticket.status === "Closed"
             ? "Ticket Closed"
@@ -211,7 +236,6 @@ function TicketDetails() {
         </button>
 
       </div>
-
 
       {/* =================================================
           ALERTS
@@ -229,7 +253,6 @@ function TicketDetails() {
         </div>
       )}
 
-
       {/* =================================================
           CUSTOMER INFORMATION
       ================================================= */}
@@ -239,6 +262,7 @@ function TicketDetails() {
         <div className="grid grid-cols-1 divide-y divide-[var(--border)] md:grid-cols-3 md:divide-x md:divide-y-0">
 
           <div className="p-5">
+
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
               Customer
             </p>
@@ -246,10 +270,11 @@ function TicketDetails() {
             <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
               {ticket.customer_name}
             </p>
+
           </div>
 
-
           <div className="p-5">
+
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
               Email
             </p>
@@ -257,10 +282,11 @@ function TicketDetails() {
             <p className="crm-break-anywhere mt-2 text-sm text-[var(--text-secondary)]">
               {ticket.customer_email}
             </p>
+
           </div>
 
-
           <div className="p-5">
+
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
               Last Updated
             </p>
@@ -268,12 +294,12 @@ function TicketDetails() {
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
               {new Date(ticket.updated_at).toLocaleString()}
             </p>
+
           </div>
 
         </div>
 
       </section>
-
 
       {/* =================================================
           MAIN CONTENT
@@ -287,14 +313,16 @@ function TicketDetails() {
 
         <div className="space-y-5">
 
-          {/* Description */}
+          {/* DESCRIPTION */}
 
           <section className="crm-card overflow-hidden">
 
             <div className="border-b border-[var(--border)] px-5 py-4">
+
               <h2 className="text-base font-semibold text-[var(--text-primary)]">
                 Description
               </h2>
+
             </div>
 
             <div className="p-5">
@@ -307,14 +335,14 @@ function TicketDetails() {
 
           </section>
 
-
-          {/* Activity */}
+          {/* ACTIVITY */}
 
           <section className="crm-card overflow-hidden">
 
             <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
 
               <div>
+
                 <h2 className="text-base font-semibold text-[var(--text-primary)]">
                   Activity
                 </h2>
@@ -322,19 +350,22 @@ function TicketDetails() {
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
                   Internal notes and ticket history
                 </p>
+
               </div>
 
               <span className="text-xs font-medium text-[var(--text-secondary)]">
                 {ticket.notes?.length || 0}{" "}
-                {ticket.notes?.length === 1 ? "note" : "notes"}
+                {ticket.notes?.length === 1
+                  ? "note"
+                  : "notes"}
               </span>
 
             </div>
 
-
             <div className="p-5">
 
-              {ticket.notes && ticket.notes.length > 0 ? (
+              {ticket.notes &&
+              ticket.notes.length > 0 ? (
 
                 <div className="space-y-5">
 
@@ -352,7 +383,9 @@ function TicketDetails() {
                       </p>
 
                       <p className="mt-2 text-xs text-[var(--text-muted)]">
-                        {new Date(item.created_at).toLocaleString()}
+                        {new Date(
+                          item.created_at
+                        ).toLocaleString()}
                       </p>
 
                     </div>
@@ -379,7 +412,6 @@ function TicketDetails() {
 
         </div>
 
-
         {/* =================================================
             RIGHT - UPDATE TICKET
         ================================================= */}
@@ -398,10 +430,9 @@ function TicketDetails() {
 
           </div>
 
-
           <div className="space-y-5 p-5">
 
-            {/* Status */}
+            {/* STATUS */}
 
             <div>
 
@@ -418,6 +449,7 @@ function TicketDetails() {
                 onChange={(event) =>
                   setStatus(event.target.value)
                 }
+                disabled={saving}
                 className="crm-select"
               >
 
@@ -437,8 +469,7 @@ function TicketDetails() {
 
             </div>
 
-
-            {/* Note */}
+            {/* NOTE */}
 
             <div>
 
@@ -457,6 +488,7 @@ function TicketDetails() {
                 }
                 placeholder="Write an internal note..."
                 rows={6}
+                disabled={saving}
                 className="crm-textarea"
               />
 
@@ -466,14 +498,13 @@ function TicketDetails() {
 
             </div>
 
-
-            {/* Save */}
+            {/* SAVE */}
 
             <button
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="crm-button w-full rounded-lg bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--primary-hover)]"
+              className="crm-button w-full rounded-lg bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving
                 ? "Saving Changes..."
@@ -485,7 +516,6 @@ function TicketDetails() {
         </section>
 
       </div>
-
 
       {/* =================================================
           CLOSE MODAL
@@ -506,8 +536,9 @@ function TicketDetails() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-              This will change the ticket status to Closed.
-              The ticket and its activity will remain available.
+              This will change the ticket status to
+              Closed. The ticket and its activity will
+              remain available.
             </p>
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -517,7 +548,8 @@ function TicketDetails() {
                 onClick={() =>
                   setShowCloseModal(false)
                 }
-                className="crm-button rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
+                disabled={saving}
+                className="crm-button rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -525,9 +557,12 @@ function TicketDetails() {
               <button
                 type="button"
                 onClick={handleCloseTicket}
-                className="crm-button rounded-lg bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--primary-hover)]"
+                disabled={saving}
+                className="crm-button rounded-lg bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Close Ticket
+                {saving
+                  ? "Closing..."
+                  : "Close Ticket"}
               </button>
 
             </div>

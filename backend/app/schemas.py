@@ -1,11 +1,13 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+)
 
-
-# =========================================================
-# CREATE TICKET
-# =========================================================
 
 class TicketCreate(BaseModel):
     customer_name: str = Field(min_length=2)
@@ -19,10 +21,6 @@ class TicketCreateResponse(BaseModel):
     created_at: datetime
 
 
-# =========================================================
-# NOTES
-# =========================================================
-
 class NoteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -31,10 +29,6 @@ class NoteResponse(BaseModel):
     note_text: str
     created_at: datetime
 
-
-# =========================================================
-# TICKET DETAILS
-# =========================================================
 
 class TicketDetailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -51,23 +45,25 @@ class TicketDetailResponse(BaseModel):
     notes: list[NoteResponse] = []
 
 
-# =========================================================
-# UPDATE TICKET
-# =========================================================
-
 class TicketUpdate(BaseModel):
     status: str | None = None
     notes: str | None = Field(default=None, min_length=1)
+
+    @field_validator("notes")
+    @classmethod
+    def validate_notes(cls, value):
+        if value is not None and not value.strip():
+            raise ValueError(
+                "Note cannot be empty or contain only spaces."
+            )
+
+        return value.strip() if value is not None else value
 
 
 class TicketUpdateResponse(BaseModel):
     success: bool
     updated_at: datetime
 
-
-# =========================================================
-# TICKET LIST / PAGINATION
-# =========================================================
 
 class TicketListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -86,10 +82,6 @@ class TicketListResponse(BaseModel):
     page_size: int
     total_pages: int
 
-
-# =========================================================
-# DASHBOARD STATISTICS
-# =========================================================
 
 class TicketStatsResponse(BaseModel):
     total: int

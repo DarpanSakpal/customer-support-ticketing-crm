@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import StatusBadge from "../components/StatusBadge";
-import { getTickets } from "../services/api";
+import { getTickets, getTicketStats } from "../services/api";
 
 function Dashboard() {
   const [tickets, setTickets] = useState([]);
@@ -17,12 +17,19 @@ function Dashboard() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
+  const [stats, setStats] = useState({
+    total: 0,
+    open: 0,
+    in_progress: 0,
+    closed: 0,
+  });
+
   const [loading, setLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
 
   // =====================================================
-  // DEBOUNCE SEARCH
+  // SEARCH DEBOUNCE
   // =====================================================
 
   useEffect(() => {
@@ -34,19 +41,11 @@ function Dashboard() {
   }, [search]);
 
   // =====================================================
-  // RESET PAGE WHEN SEARCH/FILTER CHANGES
+  // LOAD TICKETS + GLOBAL STATISTICS
   // =====================================================
 
   useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, status]);
-
-  // =====================================================
-  // FETCH TICKETS
-  // =====================================================
-
-  useEffect(() => {
-    async function loadTickets() {
+    async function loadDashboardData() {
       try {
         setError("");
 
@@ -56,21 +55,26 @@ function Dashboard() {
           setIsSearching(true);
         }
 
-        const data = await getTickets({
-          search: debouncedSearch,
-          status,
-          page,
-          pageSize,
-        });
+        const [ticketData, statsData] = await Promise.all([
+          getTickets({
+            search: debouncedSearch,
+            status,
+            page,
+            pageSize,
+          }),
+          getTicketStats(),
+        ]);
 
-        setTickets(data.items);
-        setTotal(data.total);
-        setTotalPages(data.total_pages);
+        setTickets(ticketData.items);
+        setTotal(ticketData.total);
+        setTotalPages(ticketData.total_pages);
+
+        setStats(statsData);
       } catch (err) {
         console.error(err);
 
         setError(
-          err.message || "Failed to load tickets."
+          err.message || "Failed to load dashboard data."
         );
       } finally {
         setLoading(false);
@@ -78,7 +82,7 @@ function Dashboard() {
       }
     }
 
-    loadTickets();
+    loadDashboardData();
   }, [debouncedSearch, status, page, pageSize]);
 
   // =====================================================
@@ -87,21 +91,12 @@ function Dashboard() {
 
   const statistics = useMemo(() => {
     return {
-      total: total,
-
-      open: tickets.filter(
-        (ticket) => ticket.status === "Open"
-      ).length,
-
-      inProgress: tickets.filter(
-        (ticket) => ticket.status === "In Progress"
-      ).length,
-
-      closed: tickets.filter(
-        (ticket) => ticket.status === "Closed"
-      ).length,
+      total: stats.total,
+      open: stats.open,
+      inProgress: stats.in_progress,
+      closed: stats.closed,
     };
-  }, [tickets, total]);
+  }, [stats]);
 
   // =====================================================
   // CLEAR FILTERS
@@ -204,10 +199,6 @@ function Dashboard() {
       </main>
     );
   }
-
-  // =====================================================
-  // MAIN UI
-  // =====================================================
 
   return (
     <main className="min-h-[calc(100vh-5rem)] px-4 pb-8 pt-12 sm:px-6 sm:pt-14 lg:px-8">
@@ -407,46 +398,64 @@ function Dashboard() {
 
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
 
-                {/* SEARCH */}
+                {/* =================================================
+                    FIXED SEARCH BAR
+                ================================================= */}
 
-                <div className="relative w-full sm:w-80">
+                <div className="relative w-full sm:w-[360px]">
 
-                  <svg
-                    className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-muted)]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-4-4" />
-                  </svg>
+                  {/* Search icon */}
+                  <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex w-12 items-center justify-center">
 
+                    <svg
+                      className="h-5 w-5 text-[var(--text-muted)]"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    >
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="m20 20-4-4" />
+                    </svg>
+
+                  </div>
+
+                  {/* Input */}
                   <input
                     type="text"
                     value={search}
-                    onChange={(event) =>
-                      setSearch(event.target.value)
-                    }
+                    onChange={(event) => {
+                      setSearch(event.target.value);
+                      setPage(1);
+                    }}
                     placeholder="Search tickets..."
-                    className="crm-input py-3 pl-10 pr-10 text-sm"
+                    className="crm-input h-12 w-full text-sm"
+                    style={{
+                      paddingLeft: "48px",
+                      paddingRight: "44px",
+                    }}
                   />
 
-                  {search && (
+                  {/* Clear button */}
+                  {search && !isSearching && (
                     <button
                       type="button"
-                      onClick={() => setSearch("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
+                      onClick={() => {
+                        setSearch("");
+                        setPage(1);
+                      }}
+                      className="absolute inset-y-0 right-0 z-20 flex w-11 items-center justify-center text-xl leading-none text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
                       aria-label="Clear search"
                     >
                       ×
                     </button>
                   )}
 
+                  {/* Search loading spinner */}
                   {isSearching && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 z-20 flex w-11 items-center justify-center">
 
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
 
@@ -455,14 +464,17 @@ function Dashboard() {
 
                 </div>
 
-                {/* STATUS */}
+                {/* =================================================
+                    STATUS FILTER
+                ================================================= */}
 
                 <select
                   value={status}
-                  onChange={(event) =>
-                    setStatus(event.target.value)
-                  }
-                  className="crm-input min-w-40 px-4 py-3 text-sm"
+                  onChange={(event) => {
+                    setStatus(event.target.value);
+                    setPage(1);
+                  }}
+                  className="crm-input h-12 min-w-[180px] px-4 text-sm"
                 >
 
                   <option value="">
@@ -519,7 +531,9 @@ function Dashboard() {
 
           </div>
 
-          {/* ERROR */}
+          {/* =================================================
+              ERROR
+          ================================================= */}
 
           {error && (
 
@@ -657,8 +671,6 @@ function Dashboard() {
 
               <div className="flex flex-col gap-4 border-t border-[var(--border)] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
 
-                {/* RANGE */}
-
                 <p className="text-sm text-[var(--text-secondary)]">
 
                   Showing{" "}
@@ -683,13 +695,9 @@ function Dashboard() {
 
                 </p>
 
-                {/* BUTTONS */}
-
                 {totalPages > 1 && (
 
                   <div className="flex items-center gap-1">
-
-                    {/* PREVIOUS */}
 
                     <button
                       type="button"
@@ -699,8 +707,6 @@ function Dashboard() {
                     >
                       Previous
                     </button>
-
-                    {/* PAGE NUMBERS */}
 
                     <div className="hidden items-center gap-1 sm:flex">
 
@@ -737,13 +743,9 @@ function Dashboard() {
 
                     </div>
 
-                    {/* MOBILE PAGE */}
-
                     <span className="px-3 text-sm font-medium text-[var(--text-secondary)] sm:hidden">
                       {page} / {totalPages}
                     </span>
-
-                    {/* NEXT */}
 
                     <button
                       type="button"
