@@ -1,0 +1,602 @@
+@import "tailwindcss";
+
+/* =========================================================
+   CRM DESIGN SYSTEM
+   ========================================================= */
+
+:root {
+  /* Background */
+  --background: #080f1e;
+  --background-soft: #0b1220;
+
+  /* Surfaces */
+  --sidebar: #101827;
+  --surface: #111a2b;
+  --surface-hover: #151f32;
+  --surface-soft: #162238;
+  --surface-raised: #18243a;
+
+  /* Borders */
+  --border: #22304a;
+  --border-light: #1b2940;
+
+  /* Text */
+  --text-primary: #f8fafc;
+  --text-secondary: #8fa3bf;
+  --text-muted: #60738f;
+
+  /* Primary */
+  --primary: #2167f5;
+  --primary-hover: #1b5ae0;
+  --primary-light: #132d67;
+
+  /* Status */
+  --open: #3b82f6;
+  --progress: #f59e0b;
+  --closed: #22c55e;
+
+  /* Utility */
+  --danger: #ef4444;
+
+  /* Radius */
+  --radius-sm: 7px;
+  --radius-md: 10px;
+  --radius-lg: 13px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.18);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 220ms ease;
+}
+
+
+/* =========================================================
+   LIGHT MODE
+   ========================================================= */
+
+:root:not(.dark) {
+  /* Background */
+  --background: #f4f7fb;
+  --background-soft: #eef2f7;
+
+  /* Surfaces */
+  --sidebar: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f5f8fc;
+  --surface-soft: #edf2f8;
+  --surface-raised: #e7edf5;
+
+  /* Borders */
+  --border: #d6dee9;
+  --border-light: #e3e8ef;
+
+  /* Text */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  /* Primary */
+  --primary: #2167f5;
+  --primary-hover: #1757dc;
+  --primary-light: #e7efff;
+
+  /* Status */
+  --open: #2167f5;
+  --progress: #d99000;
+  --closed: #1ca65a;
+
+  /* Utility */
+  --danger: #dc2626;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.07);
+  --shadow-md: 0 5px 18px rgba(15, 23, 42, 0.08);
+}
+
+
+/* =========================================================
+   GLOBAL RESET
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+
+  background: var(--background);
+  color: var(--text-primary);
+
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+
+/* =========================================================
+   CRM CARD
+   ========================================================= */
+
+.crm-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.crm-interactive {
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.crm-interactive:hover {
+  border-color: var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
+
+.crm-input {
+  appearance: none;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+
+  color: var(--text-primary);
+
+  outline: none;
+
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.crm-input::placeholder {
+  color: var(--text-muted);
+}
+
+.crm-input:hover {
+  border-color: #30415d;
+}
+
+.crm-input:focus {
+  border-color: var(--primary);
+
+  box-shadow:
+    0 0 0 3px rgba(33, 103, 245, 0.12);
+}
+
+:root:not(.dark) .crm-input {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+:root:not(.dark) .crm-input:hover {
+  border-color: #aebaca;
+}
+
+:root:not(.dark) .crm-input:focus {
+  border-color: var(--primary);
+
+  box-shadow:
+    0 0 0 3px rgba(33, 103, 245, 0.12);
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.crm-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.crm-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+.crm-sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+}
+
+
+/* =========================================================
+   NAVBAR
+   ========================================================= */
+
+.crm-navbar {
+  background: var(--sidebar);
+  border-bottom: 1px solid var(--border);
+}
+
+
+/* =========================================================
+   NAVIGATION ITEMS
+   ========================================================= */
+
+.crm-nav-item {
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.crm-nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.crm-nav-item.active {
+  background: rgba(33, 103, 245, 0.16);
+  color: #ffffff;
+}
+
+:root:not(.dark) .crm-nav-item.active {
+  background: var(--primary-light);
+  color: #1746a2;
+}
+
+
+/* =========================================================
+   TABLE
+   ========================================================= */
+
+.crm-table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.crm-table {
+  min-width: 820px;
+}
+
+.crm-table-row {
+  transition: background-color var(--transition-fast);
+}
+
+.crm-table-row:hover {
+  background: var(--surface-hover);
+}
+
+
+/* =========================================================
+   STATISTICS
+   ========================================================= */
+
+.crm-stat-value {
+  line-height: 1.1;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
+
+.animate-fade-in {
+  animation: fadeIn 220ms ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 240ms ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* =========================================================
+   MODAL
+   ========================================================= */
+
+.crm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 1rem;
+
+  background: rgba(2, 6, 23, 0.68);
+
+  animation: fadeIn 150ms ease-out;
+}
+
+.crm-modal {
+  width: 100%;
+  max-width: 460px;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.35);
+
+  animation: slideUp 180ms ease-out;
+}
+
+
+/* =========================================================
+   TEXT HELPERS
+   ========================================================= */
+
+.crm-break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+
+/* =========================================================
+   RESPONSIVE CRM ADJUSTMENTS
+   ========================================================= */
+
+@media (max-width: 1023px) {
+  .crm-navbar {
+    left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .crm-card {
+    border-radius: 9px;
+  }
+
+  .crm-input {
+    font-size: 16px;
+  }
+
+  .crm-modal {
+    max-width: calc(100vw - 2rem);
+  }
+}
+
+
+/* =========================================================
+   ACCESSIBILITY
+   ========================================================= */
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* =========================================================
+   CRM FORM CONTROLS
+   ========================================================= */
+
+.crm-input,
+.crm-select,
+.crm-textarea {
+  width: 100%;
+  min-height: 44px;
+  appearance: none;
+  -webkit-appearance: none;
+
+  background-color: var(--surface);
+  color: var(--text-primary);
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  padding: 10px 12px;
+
+  outline: none;
+
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.crm-input:hover,
+.crm-select:hover,
+.crm-textarea:hover {
+  border-color: #30415d;
+}
+
+.crm-input:focus,
+.crm-select:focus,
+.crm-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(33, 103, 245, 0.12);
+}
+
+/* Textarea */
+
+.crm-textarea {
+  min-height: 130px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+/* Select */
+
+.crm-select {
+  min-height: 44px;
+  padding-right: 40px;
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+
+  background-position:
+    calc(100% - 17px) 19px,
+    calc(100% - 11px) 19px;
+
+  background-size:
+    6px 6px,
+    6px 6px;
+
+  background-repeat: no-repeat;
+}
+
+/* Select options */
+
+.crm-select option {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+/* Light mode */
+
+:root:not(.dark) .crm-input,
+:root:not(.dark) .crm-select,
+:root:not(.dark) .crm-textarea {
+  background-color: #ffffff;
+  color: #0f172a;
+  border-color: #d6dee9;
+}
+
+:root:not(.dark) .crm-input:hover,
+:root:not(.dark) .crm-select:hover,
+:root:not(.dark) .crm-textarea:hover {
+  border-color: #aebaca;
+}
+
+:root:not(.dark) .crm-select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+/* Placeholder */
+
+.crm-input::placeholder,
+.crm-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* Disabled */
+
+.crm-input:disabled,
+.crm-select:disabled,
+.crm-textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
