@@ -23,7 +23,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         settings.frontend_url,
-        "https://customer-support-ticketing-cxloby0ad-darpan12.vercel.app/",
+        "https://customer-support-ticketing-cxloby0ad-darpan12.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],

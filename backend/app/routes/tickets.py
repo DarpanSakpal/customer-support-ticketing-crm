@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import crud
+from app.email_service import send_ticket_email
+
 from app.schemas import (
     TicketCreate,
     TicketCreateResponse,
@@ -13,20 +15,18 @@ from app.schemas import (
     TicketUpdateResponse,
 )
 
+
 router = APIRouter(
     prefix="/tickets",
     tags=["Tickets"],
 )
 
 
-# =========================================================
+# ============================================================
 # CREATE TICKET
-# =========================================================
+# ============================================================
 
-@router.post(
-    "/",
-    response_model=TicketCreateResponse,
-)
+@router.post("/", response_model=TicketCreateResponse)
 def create_ticket(
     ticket_data: TicketCreate,
     db: Session = Depends(get_db),
@@ -42,14 +42,11 @@ def create_ticket(
     }
 
 
-# =========================================================
-# LIST TICKETS
-# =========================================================
+# ============================================================
+# LIST / SEARCH / FILTER / PAGINATION
+# ============================================================
 
-@router.get(
-    "/",
-    response_model=TicketListResponse,
-)
+@router.get("/", response_model=TicketListResponse)
 def get_tickets(
     status: str | None = Query(
         default=None,
@@ -92,9 +89,9 @@ def get_tickets(
     }
 
 
-# =========================================================
+# ============================================================
 # TICKET STATISTICS
-# =========================================================
+# ============================================================
 
 @router.get(
     "/stats",
@@ -106,9 +103,9 @@ def get_ticket_stats(
     return crud.get_ticket_stats(db)
 
 
-# =========================================================
-# GET SINGLE TICKET
-# =========================================================
+# ============================================================
+# GET TICKET DETAILS
+# ============================================================
 
 @router.get(
     "/{ticket_id}",
@@ -132,9 +129,9 @@ def get_ticket(
     return ticket
 
 
-# =========================================================
+# ============================================================
 # UPDATE TICKET
-# =========================================================
+# ============================================================
 
 @router.put(
     "/{ticket_id}",
@@ -169,7 +166,8 @@ def update_ticket(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Invalid status. Allowed values: "
+                "Invalid status. "
+                "Allowed values: "
                 "Open, In Progress, Closed"
             ),
         )
@@ -184,3 +182,87 @@ def update_ticket(
         "success": True,
         "updated_at": updated_ticket.updated_at,
     }
+
+
+# ============================================================
+# SEND TICKET DETAILS BY EMAIL
+# ============================================================
+
+@router.post("/{ticket_id}/send-email")
+def send_ticket_details_email(
+    ticket_id: str,
+    db: Session = Depends(get_db),
+):
+    ticket = crud.get_ticket_by_id(
+        db=db,
+        ticket_id=ticket_id,
+    )
+
+    if not ticket:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found",
+        )
+
+    email_subject = (
+        f"Support Ticket {ticket.ticket_id} - "
+        f"{ticket.subject}"
+    )
+
+    email_body = f"""
+Hello {ticket.customer_name},
+
+Here are the details of your support ticket.
+
+----------------------------------------
+CUSTOMER SUPPORT TICKET
+----------------------------------------
+
+Ticket ID:
+{ticket.ticket_id}
+
+Customer:
+{ticket.customer_name}
+
+Email:
+{ticket.customer_email}
+
+Status:
+{ticket.status}
+
+Subject:
+{ticket.subject}
+
+Description:
+{ticket.description}
+
+Created At:
+{ticket.created_at}
+
+Updated At:
+{ticket.updated_at}
+
+----------------------------------------
+
+Thank you,
+Customer Support Team
+"""
+
+    try:
+        send_ticket_email(
+            recipient_email=ticket.customer_email,
+            subject=email_subject,
+            body=email_body,
+        )
+
+        return {
+            "success": True,
+            "message": "Ticket details sent successfully",
+            "recipient": ticket.customer_email,
+        }
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send email: {str(error)}",
+        )

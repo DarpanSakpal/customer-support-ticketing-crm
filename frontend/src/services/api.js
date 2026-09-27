@@ -125,3 +125,23 @@ export async function updateTicket(ticketId, ticketData) {
 
   return response.json();
 }
+
+export async function sendTicketEmail(ticketId) {
+  const response = await fetch(
+    `${API_BASE_URL}/tickets/${ticketId}/send-email`,
+    {
+      method: "POST",
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+
+    throw new Error(
+      errorData?.detail || "Failed to send ticket email"
+    );
+  }
+
+  return response.json();
+}
+

@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import StatusBadge from "../components/StatusBadge";
-import { getTicket, updateTicket } from "../services/api";
+import {
+  getTicket,
+  updateTicket,
+  sendTicketEmail,
+} from "../services/api";
 
 function TicketDetails() {
   const { ticketId } = useParams();
@@ -110,13 +114,11 @@ function TicketDetails() {
       setError("");
       setSuccess("");
 
-      // Immediately save Closed status to backend
       const response = await updateTicket(ticketId, {
         status: "Closed",
       });
 
       if (response.success) {
-        // Reload ticket from database
         const updatedTicket = await getTicket(ticketId);
 
         setTicket(updatedTicket);
@@ -128,6 +130,36 @@ function TicketDetails() {
     } catch (err) {
       setError(
         err.message || "Failed to close ticket"
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // =====================================================
+  // SEND TICKET EMAIL
+  // =====================================================
+
+  async function handleSendEmail() {
+    if (!ticket) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+      setSuccess("");
+
+      const response = await sendTicketEmail(ticketId);
+
+      if (response.success) {
+        setSuccess(
+          `Ticket details sent successfully to ${response.recipient}.`
+        );
+      }
+    } catch (err) {
+      setError(
+        err.message || "Failed to send ticket email"
       );
     } finally {
       setSaving(false);
@@ -220,20 +252,40 @@ function TicketDetails() {
 
         </div>
 
-        {/* CLOSE BUTTON */}
+        {/* HEADER ACTIONS */}
 
-        <button
-          type="button"
-          onClick={() => setShowCloseModal(true)}
-          disabled={
-            ticket.status === "Closed" || saving
-          }
-          className="crm-button w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-        >
-          {ticket.status === "Closed"
-            ? "Ticket Closed"
-            : "Close Ticket"}
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+
+          {/* SEND EMAIL */}
+
+          <button
+            type="button"
+            onClick={handleSendEmail}
+            disabled={saving}
+            className="crm-button w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {saving
+              ? "Sending..."
+              : "Send Email"}
+          </button>
+
+          {/* CLOSE TICKET */}
+
+          <button
+            type="button"
+            onClick={() => setShowCloseModal(true)}
+            disabled={
+              ticket.status === "Closed" ||
+              saving
+            }
+            className="crm-button w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {ticket.status === "Closed"
+              ? "Ticket Closed"
+              : "Close Ticket"}
+          </button>
+
+        </div>
 
       </div>
 
@@ -292,7 +344,9 @@ function TicketDetails() {
             </p>
 
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              {new Date(ticket.updated_at).toLocaleString()}
+              {new Date(
+                ticket.updated_at
+              ).toLocaleString()}
             </p>
 
           </div>
