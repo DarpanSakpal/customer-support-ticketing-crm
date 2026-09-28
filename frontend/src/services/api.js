@@ -21,7 +21,7 @@ export async function getTickets({
   params.append("page_size", pageSize);
 
   const response = await fetch(
-    `${API_BASE_URL}/tickets?${params.toString()}`
+    `${API_BASE_URL}/tickets/?${params.toString()}`
   );
 
   if (!response.ok) {
@@ -34,7 +34,6 @@ export async function getTickets({
 
   return response.json();
 }
-
 
 export async function getTicketStats() {
   const response = await fetch(
@@ -52,10 +51,9 @@ export async function getTicketStats() {
   return response.json();
 }
 
-
 export async function createTicket(ticketData) {
   const response = await fetch(
-    `${API_BASE_URL}/tickets`,
+    `${API_BASE_URL}/tickets/`,
     {
       method: "POST",
       headers: {
@@ -76,7 +74,6 @@ export async function createTicket(ticketData) {
   return response.json();
 }
 
-
 export async function getTicket(ticketId) {
   const response = await fetch(
     `${API_BASE_URL}/tickets/${ticketId}`
@@ -93,16 +90,6 @@ export async function getTicket(ticketId) {
   return response.json();
 }
 
-
-/**
- * Update ticket status and/or add a note.
- *
- * Backend expects:
- * {
- *   "status": "In Progress",
- *   "notes": "Customer has been contacted."
- * }
- */
 export async function updateTicket(ticketId, ticketData) {
   const response = await fetch(
     `${API_BASE_URL}/tickets/${ticketId}`,
@@ -144,4 +131,3 @@ export async function sendTicketEmail(ticketId) {
 
   return response.json();
 }
-
